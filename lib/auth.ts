@@ -16,8 +16,38 @@ export async function getUserRole(userId: string): Promise<UserRole> {
 }
 
 export async function getSessionContext(): Promise<UserSessionContext> {
-  const supabase = await createSupabaseServerClientSafe();
-  if (!supabase) {
+  try {
+    const supabase = await createSupabaseServerClientSafe();
+    if (!supabase) {
+      return {
+        userId: null,
+        role: "visitor",
+        emailVerified: false,
+        readiness: "degraded"
+      };
+    }
+
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return {
+        userId: null,
+        role: "visitor",
+        emailVerified: false,
+        readiness: "ready"
+      };
+    }
+
+    const role = await getUserRole(user.id);
+    return {
+      userId: user.id,
+      role,
+      emailVerified: Boolean(user.email_confirmed_at),
+      readiness: "ready"
+    };
+  } catch {
     return {
       userId: null,
       role: "visitor",
@@ -25,27 +55,6 @@ export async function getSessionContext(): Promise<UserSessionContext> {
       readiness: "degraded"
     };
   }
-
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      userId: null,
-      role: "visitor",
-      emailVerified: false,
-      readiness: "ready"
-    };
-  }
-
-  const role = await getUserRole(user.id);
-  return {
-    userId: user.id,
-    role,
-    emailVerified: Boolean(user.email_confirmed_at),
-    readiness: "ready"
-  };
 }
 
 export async function requireUser(requireVerified = true) {
